@@ -308,8 +308,8 @@ mapping <- sc$sc.pheno %>%
 mapping <- mapping %>% 
   inner_join(clustering %>% rename(cell_id = rowname))
 
-# the cellidentity we use are given by the originally labeled celltypes
-cellidentity <- "celltype"
+# the cellidentity we use are given by the clusters computed above
+cellidentity <- "clusters"
 mapping <- mapping %>%
     dplyr::select(cell_id, all_of(cellidentity)) %>%
     rename(celltype = all_of(cellidentity))
@@ -325,7 +325,7 @@ Note that due to its high dimensionality `csre` is a very large dataframe which 
 if(file.exists(file.path(data_dir, "csre.rds"))){
   csre <- readRDS(file.path(data_dir,"csre.rds"))
 } else {
-  csre <- tissueResolver::specific_expression_regulation(models, sc$sc.counts, mapping)
+  csre <- tissueResolver::specific_expression_regulation(tissuemodel, sc$sc.counts, mapping)
 }
 ```
 
@@ -347,7 +347,7 @@ across all cells belonging to a certain celltype and then averaging over bootstr
 if(file.exists(file.path(data_dir, "proportions.rds"))){
   props <- readRDS(file.path(data_dir, "proportions.rds"))
 } else {
-  props <- tissueResolver::cell_proportions(models, mapping)
+  props <- tissueResolver::cell_proportions(tissuemodel, mapping)
 }
 ```
 
