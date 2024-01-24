@@ -1,7 +1,8 @@
 ---
 title: "tissue_resolver_vignette"
 output: 
-  rmarkdown::html_vignette:
+  prettydoc::html_pretty:
+    theme: cayman
     df_print: kable
 vignette: >
   %\VignetteIndexEntry{tissue_resolver_vignette}
@@ -29,43 +30,49 @@ knitr::include_graphics("schematics.png")
 
 # Modules
 
-Let us explain the modular architecture of `tissueResolver`, for more details see also the documentation of our package.
+Let us explain the modular architecture of `tissueResolver`, for more details see also the documentation of our package available under [tissueResolver](https://github.com/spang-lab/tissueResolver).
 
 ## Computation 
 
-- `fit_tissue`: Here the given single cell library is fitted to the bulk data by computing optimal cell weights $\beta$, see section ''Algorithm'' of our paper.
-- `cell_proportions`: Here we use the cell weights computed in `fit_tissue` in order to determine weights for user defined cell groups.
-   These groups can for example describe certain cell types, such as B-cells, monocytes, T-cells, etc, but also user defined subclusters.
-- `specific_expression`: Here we focus on computing the specific gene expression and regulation for cell groups.
-- `util`: This module comprises some utility functions, e.g. for checking input data for correct formating or for transforming input data into the correct format.
+- `fit_tissue`: Here the given single cell library is fitted to the bulk data by computing optimal cell weights $\beta$, see [Compute Tissuemodel](#compute-tissuemodel).
+- `cell_proportions`: Here we use the cell weights computed in `fit_tissue` in order to determine weights for user defined cell groups,
+  see [Specific Expression and Proportions](#specific-expression-and-proportions).
+   These groups can for example describe certain cell types, such as B-cells, monocytes, T-cells, etc,
+   but also user defined clusters resulting from a classical clustering workflow as depicted in [Single Cell Clustering](#single-cell-clustering).
+- `specific_expression`: Here we focus on computing the specific gene expression and regulation for all of the above defined cell groups, see [Specific Expression and Proportions](#specific-expression-and-proportions).
+- `util`: This module comprises some utility functions, e.g., for checking input data for correct formatting or for transforming input data into the correct format.
 
 ## Quality control
 
-- `quality_scores`: Here we compute all the quality scores needed to assess the quality of the fit. The main quality scores are:
-  - the genewise mean reltive residual $g_g := \frac{1}{N_s N_k} \sum_{s,k} r_{g,s}^{k}$ 
-  - the genewise mean bootstrap variance $v_g := \frac{1}{N_s}\sum_s \mathrm{var}_k r_{g,s}^{(k)}$ 
-  - the samplewise mean reltive residual $b_s = \frac{1}{N_g N_k} \sum_{g,k} r_{g,s}^{k}$ 
+- `quality_scores`: Here we compute all the quality scores needed to assess the quality of the fit, see [Quality Scores](#quality-scores). The main quality scores are:
+  - the genewise mean relative residual $g_g := \frac{1}{N_s N_k} \sum_{s,k} r_{g,s}^{k}$ 
+  - the genewise mean bootstrap variance $v_g := \frac{1}{N_s}\sum_s \mathrm{var}_k r_{g,s}^{k}$ 
+  - the samplewise mean relative residual $b_s = \frac{1}{N_g N_k} \sum_{g,k} r_{g,s}^{k}$ 
   - the genewise mean bootstrap variance $v_s := \frac{1}{N_g N_k} \sum_{g,k} r_{g,s}^{k}$ 
-
-For details see also section ''Quality scores and gene selection''.
 
 ## Data Visualization
 
-- `weight_visualization`: Here we visualize the single cells involved in the fitting process in UMAP space
-   together with the assigned weights as a density plot illustrating the differential density between two bulk groups.
-- `cse_visualization`: Here we visualize the differential gene expression of to bulk groups in the form of relative bar plots and a heatmap plot.
-- `prop_visualization`: Here we depict the ratio of assigned weights between two bulk groups for each cell cluster.
+- `weight_visualization`: Here we visualize the single cells involved in the fitting process in UMAP space, after prior PCA embedding of their profiles,
+   together with the assigned weights as a density plot illustrating the differential density between two bulk groups, see [Data visualization](#data-visualization).
+- `cse_visualization`: Here we visualize the differential gene expression of two bulk groups in the form of relative bar plots
+  and a heatmap plot tracking down differential expression to the cell cluster level, see [Relative Barplots and Heatmap](#relative-barplots-and-heatmap).
+- `prop_visualization`: Here we depict the ratio of cumulated weights between two bulk groups for each cell cluster, see [Cell Weight Proportions](#cell-weight-proportions).
 
-For in depth explainations of the modules and the functions they comprise we refer to the respective documentation.
+For in depth explanations of the modules and the functions they comprise we refer to the respective documentation
+in [tissueResolver](https://github.com/spang-lab/tissueResolver)
 There we also provide simple examples working with easy to access (artificial) data for ease of presentation.
 
 In this vignette we want to give a more general overview over the most important functions
 used when building a practical `tissueResolver` pipeline.
-Here we use the actual real bulk and single cell data, that was also analyzed in our monograph.
+Here we use the actual real bulk and single cell data, that was also analyzed in our paper.\
+This means running the following code will reproduce large parts of the results presented in our paper.
+For all results not contained in this vignette we provide additional R scripts, see also `README.md`.
 
 We note that the data comprised in `bulks.rds` and `sc.rds` is the result of the gene 
-filtering procudure explained in supplemental section **Gene filtering** of our monograph
+filtering procedure explained in supplemental section **Gene filtering** of our paper.
+We mainly filter for the top 1000 most variable genes in both bulk and single cell data sets.
 
+So let us enter the `tissueResolver` pipeline.\
 First of all we load the `tissueResolver` package and further necessary libraries.
 
 ```{r setup , message=FALSE, warning=FALSE}
@@ -75,22 +82,23 @@ First of all we load the `tissueResolver` package and further necessary librarie
   library(umap)
   library(viridis)
   library(gridExtra)
+  set.seed(42)
 ```
 
 # Data Loading
 
 ```{r, message=FALSE, warning=FALSE}
-# we initialiozed data dir in the repo
+# we initialized data dir in the repo
 data_dir <- "data"
 plotdir <- file.path(data_dir, "plots")
 dir.create(plotdir, showWarnings = FALSE)
 ```
 
-All the upcoming calculations are based on a collection of bulk samples `bulks.rds` and a single cell library `sc.rds`.
+All the upcoming calculations are based on the collection of bulk samples `bulks.rds` and the single cell library `sc.rds`.
 
 ```{r, message=FALSE, warning=FALSE}
   if (!file.exists(file.path(data_dir, "sc.rds")) || !file.exists(file.path(data_dir,"bulks.rds"))){
-     stop("Single cell or bulk data missing. Please provide sc.rds and bulks.rds in your data folder")
+     stop("Single cell or bulk data missing. Please provide sc.rds and bulks.rds in your data folder.")
   } else {
     sc <- readRDS(file.path(data_dir, "sc.rds"))
     bulks <- readRDS(file.path(data_dir,"bulks.rds"))
@@ -112,7 +120,8 @@ Let's explore the single cell dataset.
   sc$sc.counts[100:110,3:4]
 
   # the celltypes as annotated in the original publications
-  unique(sc$sc.pheno["celltype"])
+  # together with the number of corresponding cells
+  sc$sc.pheno %>% group_by(celltype) %>% summarize(n_cells = n())
 ```
 
 Let's explore the bulk dataset.
@@ -131,21 +140,25 @@ Let's explore the bulk dataset.
   bulks$bulk.counts[1:10,1:5]
 
   # the genetic ABC/GCB subtype labeling from the original publication
-  unique(bulks$bulk.pheno["Gene.Expression.Subgroup"])
+  bulks$bulk.pheno %>% group_by(Gene.Expression.Subgroup) %>% summarize(n_samples = n())
 ```
+
+This genetic subtype will be used for the grouping of bulks, see [Retrieving Bulk Groups](#retrieving-bulk-groups).
 
 # Compute Tissuemodel
 
-This section is dedicated to illustrate the module `fit_tissue`.
+This section is dedicated to illustrate the module `fit_tissue` which implements the steps explained in section **Algorithm** of our paper.
 Due to the high dimensional constrained optimization problem which has to be solved in every bootstrap run
 this function needs some computation time.
-Therefore we provide the tissuemodel as an rds file.
+Therefore we provide the tissuemodel as a `.rds` file.
 
 ```{r, message=FALSE, warning=FALSE}
 
   bootstrap <- TRUE
   bootstrap_nruns <- 50
   bootstrap_pctcells <- 10
+  # allow for high iteration number in order for optimizer to converge
+  maxit <- 2e3
 
   if (file.exists(file.path(data_dir,"tissuemodel.rds"))){
     tissuemodel <- readRDS(file.path(data_dir,"tissuemodel.rds"))
@@ -153,10 +166,12 @@ Therefore we provide the tissuemodel as an rds file.
       tissuemodel <- fit_tissue(
                       bulkdata = bulks$bulk.counts,
                       sclibrary = sc$sc.counts,
+                      maxit = maxit,
                       bootstrap = bootstrap,
                       bootstrap_nruns = bootstrap_nruns,
                       bootstrap_pctcells = bootstrap_pctcells
                   )
+      saveRDS(tissuemodel, file.path(data_dir, "tissuemodel.rds"))
   }
 ```
 
@@ -170,11 +185,46 @@ So let's explore the tissuemodel.
   # the first tissuemodels resulting from the bootstrap runs
   head(tissuemodel$tissuemodels[[1]], n=10)
   head(tissuemodel$tissuemodels[[2]], n=10)
+
 ```
+
+The tissuemodel also stores logging info about the iterations of the optimizer,
+here exemplarily for the first bootstrap run and a specific bulk sample.
+
+```{r, message=FALSE, warning=FALSE}
+
+  tissuemodel$log_stores[[1]] %>% filter(bulk_id == "DLBCL10502") %>% pull(log)
+```
+
+Now we determine how many cells were drawn on average and the corresponding standard deviation.
+```{r, message=FALSE, warning=FALSE}
+  all_models <- tibble()
+
+  for (irun in 1:bootstrap_nruns) {
+      all_models <- rbind(all_models, tissuemodel$tissuemodels[[irun]] %>% add_column(run = irun))
+  }
+
+  all_models_drawn <- all_models %>%
+      group_by(bulk_id, run) %>%
+      summarize(ncells = n()) %>%
+      ungroup() %>%
+      group_by(bulk_id) %>%
+      mutate(mean_ncells = mean(ncells))
+
+  ncells_mean_bulk <- unique(all_models_drawn$mean_ncells)
+
+  # cells drawn on avarage
+  mean(ncells_mean_bulk)
+
+  # standard deviation
+  sd(ncells_mean_bulk)
+```
+
+So we see that on average in order to declare a bulk 25 cells were drawn with a standard deviation of 5.
 
 # Retrieving Bulk Groups
 
-Here we simply retrieve the grouping comprised in the original bulk data annotations and save it to a csv file. 
+Here we simply retrieve the grouping comprised in the original bulk data annotations and save it to a `.csv` file. 
 In our publication this grouping reflects the ABC vs. GCB genetic subtype of DLBCL patients.
 
 ```{r, message=FALSE, warning=FALSE}
@@ -198,18 +248,20 @@ In our publication this grouping reflects the ABC vs. GCB genetic subtype of DLB
 
 # Computing Cell-type Specific Expression
 
-As one of our main goals is to see how *celltypes* and a posteriori defined *cell clusters* explain bulk tissues,
-we need to compute from the tissuemodel's weights the cell frequencies, cell type specific expression and regulation, see paper section 
-''Cell frequencies and cell-type specific gene expression from virtual tissues''
+One of our main goals is to see how *cell types* or *cell clusters* explain regulatory processes within bulk tissues.
+Thus, we need to compute from the tissuemodel's weights, which were computed independently of any cell type labels, the cell frequencies, cell type specific expression and regulation,
+see section **Cell frequencies and cell-type specific gene expression from virtual tissues** of our paper.
 
-In order to compute the specific expression and regulation, we first need to define a mapping that maps each cell to a certain celltype or cluster.
-In our case the celltypes are labeled as in the original publications
-and the cell clusters we will compute now.
+In order to compute these quantities, we first need to define a mapping that maps each cell to a certain cell type or cluster.
+Our downstream analysis focuses on cell clusters rather than originally labeled cell types,
+as this will reveal novel insights into known signatures.
+
+These clusters we will compute now.
 
 ## Single Cell Clustering
 
-As explained in supplemental section **Clustering of single cells**,
-we use a standard Seurat workflow to arrive at granular cell clusters complementing the original cell type labels from the original studies.
+As explained in supplementary section **Clustering of single cells** of our paper,
+we use a standard Seurat workflow to arrive at granular cell clusters complementing the cell type labels from the original studies.
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
 
@@ -228,37 +280,40 @@ seurobj <- CreateSeuratObject(counts = sc$sc.counts, min.cells = 3, min.features
 seurobj <- ScaleData(seurobj, features = rownames(seurobj))
 seurobj <- RunPCA(seurobj, features = rownames(seurobj))
 
-# label according to diagnosis
+# label according to diagnosis for final UMAP plot
 diagnosis <- replace_na(diagnosis, "Reactive Lymphadenitis")
 diagnosis[diagnosis == "Diffuse large B cell lymphoma"] <- subclass[diagnosis == "Diffuse large B cell lymphoma"]
 names(diagnosis) <- sc$sc.pheno %>% pull(colnames)
 seurobj@meta.data[["diagnosis"]] <- diagnosis[rownames(seurobj@meta.data)]
+
 seurobj@meta.data[["diagnosis"]] <- replace(seurobj@meta.data[["diagnosis"]], seurobj@meta.data[["diagnosis"]] == "FL", "Follicular Lymphoma")
 seurobj@meta.data[["diagnosis"]] <- replace(seurobj@meta.data[["diagnosis"]], seurobj@meta.data[["diagnosis"]] == "tFL", "Transformed Follicular Lymphoma")
-seurobj@meta.data[["diagnosis"]] <- replace(seurobj@meta.data[["diagnosis"]], seurobj@meta.data[["diagnosis"]] == "non-Germinal Center subtype", "GCB DLBCL")
+seurobj@meta.data[["diagnosis"]] <- replace(seurobj@meta.data[["diagnosis"]], seurobj@meta.data[["diagnosis"]] == "non-Germinal Center subtype", "ABC DLBCL")
 seurobj@meta.data[["diagnosis"]] <- replace(seurobj@meta.data[["diagnosis"]], seurobj@meta.data[["diagnosis"]] == "Germinal Center subtype", "GCB DLBCL")
 ```
 
 In the next step we cluster our PCA embedded single cell data via Louvain clustering.
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
-# Cluster the PCA
+# cluster the PCA embedded cells
 seurobj <- FindNeighbors(seurobj, dims = 1:npca)
 seurobj <- FindClusters(seurobj, resolution = resolution)
 ```
 
 ## Visualization of Single Cell Clusters
 
-In order to visualize the clusters we have just computed we apply UMAP and plot the result, see also Figure 3 of our paper.
+In order to visualize the clusters we have just computed we apply UMAP and plot the result, see also the UMAP figure of our paper.
 
-Note that due to the randomness inherent to UMAP clustering the plot depends on the system it is executed on, but the cluster labels stay consistent.
+Note that due to the randomness inherent to UMAP clustering the plot depends on the system it is executed on,
+but the cluster labels as stored in `seurobj@meta.data` stay consistent.\
+These labels will be used for downstream analysis and
+will thus be stored in `clustering.csv`, see below.
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
-# Perform UMAP embedding
+# perform UMAP embedding
 seurobj <- RunUMAP(seurobj, dims = 1:npca)
 
 umap_diagnosis <-
-    # DimPlot(seurobj, reduction = "umap", group.by = "celltype_orig", label = FALSE)
     DimPlot(seurobj,
       reduction = "umap",
       group.by = "diagnosis",
@@ -275,10 +330,19 @@ ggsave(
     units = "in",
     device = "png"
 )
+```
 
-# For later use we store the clustering to a .csv file
-if(file.exists(file.path(data_dir,"clustering.csv"))){
-  clustering <- read.csv(file.path(data_dir,"clustering.csv"))
+```{r, out.width = "100%", fig.align = "center"}
+knitr::include_graphics(file.path(plotdir,"umap_diagnosis.png")) 
+```
+
+Exemplarily we see several large B-cell clusters reflecting different patients.
+
+For downstream analysis we store the resulting clustering
+```{r, message=FALSE, warning=FALSE}
+# for later use we store the clustering to a .csv file
+if (file.exists(file.path(data_dir, "clustering.csv"))) {
+  clustering <- read.csv(file.path(data_dir, "clustering.csv"))
 } else {
   clustering <- seurobj@meta.data %>%
     rownames_to_column() %>%
@@ -289,18 +353,13 @@ if(file.exists(file.path(data_dir,"clustering.csv"))){
 }
 ```
 
-```{r, out.width = "100%", fig.align = "center"}
-knitr::include_graphics(file.path(plotdir,"umap_diagnosis.png")) 
-```
-
-Exemplarily we see several large B-cell data reflecting different patients.
-
 ##  Specific Expression and Proportions
 
-With the clusters at hand we can now compute the cell type specific expression and proportions which encode the cell type frequencies.
-But first we need to map each cell to its type and its cluster.
+With the clusters at hand we can now compute the cell type specific expression and proportions which encode the cell type frequencies, see also section
+**Cell frequencies and cell-type specific gene expression from virtual tissues** of our paper.
+But first we need to map each cell to its corresponding cluster.
 
-```{r, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 # construct cell type mapping based on the single cell clusters
 mapping <- sc$sc.pheno %>%
     dplyr::select(colnames, celltype) %>%
@@ -319,13 +378,15 @@ Now we are in the position to compute specific expression and regulation.
 All these quantities are included in the `csre` dataframe, see also the documentation of
 `specific_expression_regulation` for details.
 
-Note that due to its high dimensionality `csre` is a very large dataframe which needs some time for loading.
+Note that due to its high dimensionality computing `csre` is the most cost intensive task in our pipeline.\
+Thus, we provide this dataframe as `.rds` file.
 
 ```{r, message=FALSE, warning=FALSE}
 if(file.exists(file.path(data_dir, "csre.rds"))){
   csre <- readRDS(file.path(data_dir,"csre.rds"))
 } else {
   csre <- tissueResolver::specific_expression_regulation(tissuemodel, sc$sc.counts, mapping)
+  saveRDS(csre, file.path(data_dir, "csre.rds"))
 }
 ```
 
@@ -334,13 +395,13 @@ So let us have a look at this dataframe.
 ```{r, message=FALSE, warning=FALSE}
   dim(csre)
 
-  csre[100, ]
+  csre %>% filter(bulk_id == "DLBCL11205", celltype == "1",  gene == "ENSG00000156508")
 ```
 
 We see that this dataframe stores for each bulk all the bootstrap cell-type specific expressions and regulations,
 as well as their mean across all bootstrap runs.
 
-Furthermore we compute the cell proportions, i.e., the cell type weights resulting from avaraging the weights 
+Furthermore we compute the cell proportions, i.e., the cell type weights resulting from cumulating the weights 
 across all cells belonging to a certain celltype and then averaging over bootstrap runs.
 
 ```{r,  message=FALSE, warning=FALSE}
@@ -348,6 +409,7 @@ if(file.exists(file.path(data_dir, "proportions.rds"))){
   props <- readRDS(file.path(data_dir, "proportions.rds"))
 } else {
   props <- tissueResolver::cell_proportions(tissuemodel, mapping)
+  saveRDS(props, file.path(data_dir, "props.rds"))
 }
 ```
 
@@ -356,16 +418,18 @@ So let us have a look at this dataframe.
 ```{r, message=FALSE, warning=FALSE}
   dim(props)
 
-  props[100, ]
+  props %>% filter(bulk_id == "DLBCL11205", celltype == "1")
 ```
 
 We see that this dataframe indeed associates to each cell-type in each bulk the weights of all bootstrap runs,
-as well as the average weights across bootstrap runs.
+as well as the average weight across bootstrap runs.
+In order to retrieve the sample specific *effective cell frequency* as in equation (2) of our paper,
+one additionally needs to divide by the sum over all weights belonging to this sample.
 
 # Data Visualization
 
 The goal of this section is to visualize differential gene expression of the already computed cell clusters in UMAP space
-via a tile overlay, see Figure 3 in our paper.
+via a tile overlay, see also the UMAP figure in our paper.
 
 We invoke the `density_distribution` function in order to compute this tile overlay based on a density estimate for the cell's weights,
 see also the documentation for details.
@@ -400,11 +464,8 @@ tissuemodel <- tm %>%
 thistm <- tissuemodel %>% filter(cell_id %in% (embedding %>% pull(cell_id)))
 ```
 
-After these prepriatory steps we are in the position to compute the density distribution
+After these preparatory steps we are in the position to compute the density distribution
 and then plot the aforementioned tile plot.
-
-The computation of `density_data` via `density_distribution` is time consuming,
-so it is also reasonable to store this data frame.
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
 if(file.exists(file.path(data_dir, "density.rds"))){
@@ -433,14 +494,16 @@ ggsave(file.path(plotdir,"umap_differential_celltypes.png"), plot_celltypes, wid
 knitr::include_graphics(file.path(plotdir,"umap_differential_celltypes.png")) 
 ```
 
+The tile overlay reveals both differentiality in the large B-cell clusters as well as intra cluster heterogeneity when comparing the ABC vs. GCB subtype.
+Red indicates that the cells in this area are in relation preferably associated to the GCB group whereas blue indicates drawing in favour of the ABC group.
+We see e.g., that most of the large B-cell clusters are drawn in favor of the patient group they were extracted from.
+
+
 
 # Quality Scores
 
 We now assess the quality of the fits via the quantities stored in `csre`.
-We compute in `quality_scores` the gene-specific and bulk-specific scores introduced in the paper,
-see section ``Algorithm'' and also the documentation.
-
-This may take some computation time, so it is reasonable to store this dataframe.
+In `quality_scores` we compute the gene-specific and bulk-specific scores introduced in the paper, see section **Quality scores and gene selection**.
 
 ```{r,  message=FALSE, warning=FALSE}
 if(file.exists(file.path(data_dir,"qc.rds"))){
@@ -459,7 +522,7 @@ head(qc$genes)
 ```
 
 We see that `qc` stores the quality scores for genes in `qc$genes` and the quality scores for bulks in `qc$bulks`.
-Forthermore it saves the actual bulk expression of each gene.
+Furthermore it saves the actual bulk expression of each gene for convenient plotting.
 
 Now we can exemplarily plot the mean relative residual $g_g$ vs. the mean bootstrap variance $v_g$.
 
@@ -479,19 +542,19 @@ ggsave(file.path(plotdir, "relres_relres_mean_var.png"), p_gene_mean_var_all, wi
 knitr::include_graphics(file.path(plotdir, "relres_relres_mean_var.png")) 
 ```
 
+We see that most of the genes possess a low relative residual ($g_g\le 0.5$) and low bootstrap variance ($v_g\le 0.03$).
 
 # CSRE Visualization
 
 ## Relative Barplots and Heatmap
 
-In this section we visualize the cell type specific differential expression for two bulk groups via a combined bar and heatmap plot,
-see e.g., Figure 6 in our paper.
-Again we choose here the `ABC` and `GCB` bulk groups.
+In this section we visualize the cell type specific differential expression for the ABC/GCB bulk groups via a combined bar and heatmap plot,
+see section **The micro-environment of diffuse large B-cell lymphomas** of our paper.
 
-First let us define the signature genes of the ABC/GCB signature from [Alizadeh et al., 2000].
+First let us define the signature genes of the ABC/GCB signature from [Alizadeh et al., 2000](https://www.nature.com/articles/35000501).
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
-  # This is used to add the ABC/GCB signature genes to our analysis
+  # ABC/GCB signature genes
 additional_genes <- c(
                 "ENSG00000143727",
                 "ENSG00000156127",
@@ -534,7 +597,7 @@ additional_genes <- c(
                 "ENSG00000198467",
                 "ENSG00000035403"
   )
-  # retrieve groups stored in the grouping.csv and add the bulk groups
+  # retrieve groups stored in the grouping.csv
   grouping <- as_tibble(read.csv(file.path(data_dir, "grouping.csv")))
   grouping <- grouping %>% mutate(group = factor(group, levels=c(groupA, groupB)))
 
@@ -544,10 +607,24 @@ Accessing the `csre` dataframe we can plot the differential gene expression comp
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
 
-  # if genes are filtitered due to insufficient expression
+  # take only signature genes
   csre <- csre %>% filter(gene %in% additional_genes)
 
-  # join grouping in order to be accessed by plotting functions
+  # map csre genes to HGNC symbols
+    mapping <- map_feature_names(
+      csre %>% pull(gene),
+      input.type = "ensembl_gene_id",
+      output.type = "hgnc_symbol",
+      n.tries = 10,
+      undo.safety.check = TRUE
+    )
+    mapvec <- mapping[["hgnc_symbol"]]
+    names(mapvec) <- mapping[["ensembl_gene_id"]]
+    csre <- csre %>%
+      rename(ensembl = gene) %>%
+      mutate(gene = mapvec[ensembl])
+
+  # join grouping in order to be accessed by plot function
   csre <- csre %>% inner_join(grouping %>% dplyr::select(bulk_id, group)) %>% drop_na()
 
   p <- tissueResolver::plot_csre(csre,
@@ -558,7 +635,7 @@ Accessing the `csre` dataframe we can plot the differential gene expression comp
     ctypes = NULL,
     addexpressionlevel = FALSE
     )
-  ggsave(file.path(plotdir, "CSE_change_long_relchange.png"),
+  ggsave(file.path(plotdir, "bar_heatmap_gcbabc.png"),
     p,
     width = 12,
     height = 12,
@@ -570,23 +647,44 @@ Accessing the `csre` dataframe we can plot the differential gene expression comp
 So let us plot the relative change.
 
 ```{r, out.width = "100%", fig.align = "center"}
-knitr::include_graphics(file.path(plotdir, "CSE_change_long_relchange.png")) 
+knitr::include_graphics(file.path(plotdir, "bar_heatmap_gcbabc.png")) 
 ```
+
+The barplots on the left are normalized to the total explained expression of `groupA` namely the GCB subgroup.
+Thus, all the bars in this group possess length one and we can read the relative change from the bars in groupB.
+So e.g., the gene SPINK2 is more than two times upregulated in the ABC group with an intense change induced by clusters 18 and 20,
+which are represented by the brown and salmon color.
+
+
+The heatmap plot further underlines gene expression changes by displaying the relation
+```
+0.5*(avgexpr_A-avgexpr_B)/(total_expr_A+total_expr_B),
+``` 
+where `avgexpr` denotes the average expression of the respective gene within the specific cluster in the associated bulk group and
+`total_expr` denotes the total explained expression of the gene in the associated bulk group.\
+So the blue tiles for gene SPINK2 in cluster 18 and 20 stand for upregulation of that gene in the ABC bulk group.
 
 ## Cell Weight Proportions
 
-Finally we want to plot the ratio of weights between bulk groups for each cluster,
-see Figure 4 in the paper and also the documentation of `prop_visualization`.
+Finally we want to plot the ratio of weights between bulk groups for each cluster, see
+the estimated cellular composition plot in the paper and also the documentation of `prop_visualization`.
 
-recall that the cumulated cell type specific weights are stored in the `props` dataframe.
+Recall that the cumulated cell type specific weights are stored in the `props` dataframe.
+In `prop_visualization` we compute the mean of these cell type specific weights with repsect to the associated bulk group
+and further compute the standard error in order to assess the variability across samples symbolized by a whisker.
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE}
 grouping <- as_tibble(read.csv(file.path(data_dir, "grouping.csv")))
 props <- readRDS(file.path(data_dir, "proportions.rds"))
-prop_plot <- tissueResolver::prop_visualization(props, grouping, groupA, groupB)
+prop_plot <- tissueResolver::prop_visualization(props, grouping, groupB, groupA)
 ggsave(file.path(plotdir, "proportions.png"), prop_plot, width = 12, height = 12, dpi = 150, units = "in")
 ```
 
 ```{r, out.width = "100%", fig.align = "center"}
 knitr::include_graphics(file.path(plotdir, "proportions.png")) 
 ```
+
+For e.g., for cluster 17 we see that cells were *consistently* drawn in order to declare bulks indicated by a low variability in the plot's whisker.
+The cell type specific weights assigned for GCB bulks are a bit higher than for ABC bulks in cluster 17.
+
+In order to reproduce the remaining parts of our paper, we refer to the `R` scripts contained in this repository.
