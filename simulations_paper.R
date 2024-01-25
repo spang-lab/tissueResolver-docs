@@ -100,7 +100,7 @@ simulate_bulks <- function(scdata, nbulks, nperbulk, fuzzy = NA, fuzzyness = 0.3
 
 # READ SC FILE
 if (!file.exists(scfile)) {
-	stop(paste0("Single cell file is not available in ", scfile, ". Please download from https://doi.org/10.5281/zenodo.10139154 or let the vignette run first."))
+ stop(paste0("Single cell file is not available in ", scfile, ". Please download from https://doi.org/10.5281/zenodo.10568550 or let the vignette run first."))
 }
 sc <- readRDS(scfile)
 # use Steen et al. dataset

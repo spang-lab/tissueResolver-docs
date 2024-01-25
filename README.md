@@ -17,7 +17,7 @@ we refer to the corresponding R package and its documentation available under [S
 
 # Data Accessibility
 
-We provide all the necessary data for download via the Zenodo DOI: [10.5281/zenodo.10139154](https://doi.org/10.5281/zenodo.10139154).
+We provide all the necessary data for download via the Zenodo DOI: [10.5281/zenodo.10568550](https://doi.org/10.5281/zenodo.10568550).
 
 The case study of our paper is based on the following raw data:
 - **bulk RNA-seq**: From the publication [Genetics and pathogenesis of diffuse large B-cell lymphoma](https://www.nejm.org/doi/10.1056/NEJMoa1801445?url_ver=Z39.88-2003&rfr_id=ori:rid:crossref.org&rfr_dat=cr_pub%20%200www.ncbi.nlm.nih.gov) by **[Schmitz et al., 2018]** accessible under [GDC](https://gdc.cancer.gov/about-data/publications/DLBCL-2018)
@@ -47,7 +47,7 @@ We intentionally set some computationally heavy R chunks to `eval = FALSE` and p
 
 Setting `eval = TRUE` and only storing `bulks.rds` and `sc.rds` in the `data` folder will compute everything from scratch.
 
-If you run the `tissue_resolver_vignette.Rmd` for the first time, we provided all the data under Zenodo DOI: [10.5281/zenodo.10139154](https://doi.org/10.5281/zenodo.10139154).
+If you run the `tissue_resolver_vignette.Rmd` for the first time, we provided all the data under Zenodo DOI: [10.5281/zenodo.10568550](https://doi.org/10.5281/zenodo.10568550).
 For compiling `tissue_resolver_vignette.Rmd` you only need `sc.rds` and `bulks.rds` to be stored in the `data` folder.
 The more additional data you provide, the less will be computed by `tissueResolver`.
 
