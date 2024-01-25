@@ -82,6 +82,7 @@ First of all we load the `tissueResolver` package and further necessary librarie
   library(umap)
   library(viridis)
   library(gridExtra)
+  source("map_feature_names.R")
   set.seed(42)
 ```
 
@@ -149,8 +150,8 @@ This genetic subtype will be used for the grouping of bulks, see [Retrieving Bul
 
 This section is dedicated to illustrate the module `fit_tissue` which implements the steps explained in section **Algorithm** of our paper.
 Due to the high dimensional constrained optimization problem which has to be solved in every bootstrap run
-this function needs some computation time.
-Therefore we provide the tissuemodel as a `.rds` file.
+this function needs some computation time. Therefore we provide the tissuemodel as a `.rds` file.
+However, we provide the option for the bulks to be fit in parallel in order to speed up the computation.
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -159,6 +160,8 @@ Therefore we provide the tissuemodel as a `.rds` file.
   bootstrap_pctcells <- 10
   # allow for high iteration number in order for optimizer to converge
   maxit <- 2e3
+  # for fitting bulks in parallel specify here the number of CPU cores
+  ncores <- 1
 
   if (file.exists(file.path(data_dir,"tissuemodel.rds"))){
     tissuemodel <- readRDS(file.path(data_dir,"tissuemodel.rds"))
@@ -169,7 +172,8 @@ Therefore we provide the tissuemodel as a `.rds` file.
                       maxit = maxit,
                       bootstrap = bootstrap,
                       bootstrap_nruns = bootstrap_nruns,
-                      bootstrap_pctcells = bootstrap_pctcells
+                      bootstrap_pctcells = bootstrap_pctcells,
+                      ncores = ncores
                   )
       saveRDS(tissuemodel, file.path(data_dir, "tissuemodel.rds"))
   }
@@ -409,7 +413,7 @@ if(file.exists(file.path(data_dir, "proportions.rds"))){
   props <- readRDS(file.path(data_dir, "proportions.rds"))
 } else {
   props <- tissueResolver::cell_proportions(tissuemodel, mapping)
-  saveRDS(props, file.path(data_dir, "props.rds"))
+  saveRDS(props, file.path(data_dir, "proportions.rds"))
 }
 ```
 

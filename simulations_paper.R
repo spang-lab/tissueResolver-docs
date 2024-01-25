@@ -9,7 +9,8 @@ set.seed(42)
 # a suffix appended to all output
 suffix <- "cd8"
 # algorithms to benchmark:
-algos <- c("tr", "bp_nosubtypes", "bp_subtypes")
+# algos <- c("tr", "bp_nosubtypes", "bp_subtypes")
+algos <- c("tr")
 # single cell dataset (is expected to follow a certain annotation format, e.g. for cell labels)
 scfile <- "data/sc.rds"
 # celltype that is split into the "modified" and "unmodified" groups
@@ -174,7 +175,7 @@ fit_bulks_tr <- function(bulks, sccounts) {
     rownames(bmat) <- bulks$bulks %>% pull(bulkid)
     # call here the parallel version of fit tissue
     # for efficient computation of bulks in parallel on multiple cores
-    tissuemodel <- tissueResolver::fit_tissue_par(
+    tissuemodel <- tissueResolver::fit_tissue(
       t(bmat),
       t(scmat),
       maxit = 1e4,

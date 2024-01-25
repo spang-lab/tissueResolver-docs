@@ -239,7 +239,8 @@ necessary libraries.</p>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="fu">library</span>(umap)</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="fu">library</span>(viridis)</span>
 <span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="fu">library</span>(gridExtra)</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">42</span>)</span></code></pre></div>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="fu">source</span>(<span class="st">&quot;map_feature_names.R&quot;</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">42</span>)</span></code></pre></div>
 </div>
 </div>
 <div id="data-loading" class="section level1">
@@ -411,27 +412,32 @@ samples <code>bulks.rds</code> and the single cell library
 <strong>Algorithm</strong> of our paper. Due to the high dimensional
 constrained optimization problem which has to be solved in every
 bootstrap run this function needs some computation time. Therefore we
-provide the tissuemodel as a <code>.rds</code> file.</p>
+provide the tissuemodel as a <code>.rds</code> file. However, we provide
+the option for the bulks to be fit in parallel in order to speed up the
+computation.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  bootstrap <span class="ot">&lt;-</span> <span class="cn">TRUE</span></span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  bootstrap_nruns <span class="ot">&lt;-</span> <span class="dv">50</span></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  bootstrap_pctcells <span class="ot">&lt;-</span> <span class="dv">10</span></span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="co"># allow for high iteration number in order for optimizer to converge</span></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  maxit <span class="ot">&lt;-</span> <span class="fl">2e3</span></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">file.exists</span>(<span class="fu">file.path</span>(data_dir,<span class="st">&quot;tissuemodel.rds&quot;</span>))){</span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    tissuemodel <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(data_dir,<span class="st">&quot;tissuemodel.rds&quot;</span>))</span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>      tissuemodel <span class="ot">&lt;-</span> <span class="fu">fit_tissue</span>(</span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>                      <span class="at">bulkdata =</span> bulks<span class="sc">$</span>bulk.counts,</span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>                      <span class="at">sclibrary =</span> sc<span class="sc">$</span>sc.counts,</span>
-<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>                      <span class="at">maxit =</span> maxit,</span>
-<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>                      <span class="at">bootstrap =</span> bootstrap,</span>
-<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>                      <span class="at">bootstrap_nruns =</span> bootstrap_nruns,</span>
-<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>                      <span class="at">bootstrap_pctcells =</span> bootstrap_pctcells</span>
-<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>                  )</span>
-<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>      <span class="fu">saveRDS</span>(tissuemodel, <span class="fu">file.path</span>(data_dir, <span class="st">&quot;tissuemodel.rds&quot;</span>))</span>
-<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>  }</span></code></pre></div>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="co"># for fitting bulks in parallel specify here the number of CPU cores</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  ncores <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">file.exists</span>(<span class="fu">file.path</span>(data_dir,<span class="st">&quot;tissuemodel.rds&quot;</span>))){</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>    tissuemodel <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(data_dir,<span class="st">&quot;tissuemodel.rds&quot;</span>))</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>      tissuemodel <span class="ot">&lt;-</span> <span class="fu">fit_tissue</span>(</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>                      <span class="at">bulkdata =</span> bulks<span class="sc">$</span>bulk.counts,</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>                      <span class="at">sclibrary =</span> sc<span class="sc">$</span>sc.counts,</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>                      <span class="at">maxit =</span> maxit,</span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>                      <span class="at">bootstrap =</span> bootstrap,</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>                      <span class="at">bootstrap_nruns =</span> bootstrap_nruns,</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>                      <span class="at">bootstrap_pctcells =</span> bootstrap_pctcells,</span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>                      <span class="at">ncores =</span> ncores</span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>                  )</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>      <span class="fu">saveRDS</span>(tissuemodel, <span class="fu">file.path</span>(data_dir, <span class="st">&quot;tissuemodel.rds&quot;</span>))</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>  }</span></code></pre></div>
 <p>So let’s explore the tissuemodel.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a></span>
 <span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="co"># the model&#39;s parameters for overview:</span></span>
@@ -889,7 +895,7 @@ to a certain celltype and then averaging over bootstrap runs.</p>
 <span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>  props <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(data_dir, <span class="st">&quot;proportions.rds&quot;</span>))</span>
 <span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>} <span class="cf">else</span> {</span>
 <span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>  props <span class="ot">&lt;-</span> tissueResolver<span class="sc">::</span><span class="fu">cell_proportions</span>(tissuemodel, mapping)</span>
-<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="fu">saveRDS</span>(props, <span class="fu">file.path</span>(data_dir, <span class="st">&quot;props.rds&quot;</span>))</span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="fu">saveRDS</span>(props, <span class="fu">file.path</span>(data_dir, <span class="st">&quot;proportions.rds&quot;</span>))</span>
 <span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>}</span></code></pre></div>
 <p>So let us have a look at this dataframe.</p>
 <div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>  <span class="fu">dim</span>(props)</span>
